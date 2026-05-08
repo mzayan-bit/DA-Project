@@ -1,13 +1,13 @@
 # Frequent Itemset Mining (FIM) Analysis: Apriori vs. OFIM
 
 ## Overview
-This repository contains the implementation and empirical benchmarking of Frequent Itemset Mining (FIM) algorithms on dense datasets. The project rigorously compares the classical **Apriori** algorithm against a state-of-the-art vertical data formatting approach, **OFIM** (Ordered Frequent Itemset Matrix). 
+This repository contains the implementation and empirical benchmarking of Frequent Itemset Mining (FIM) algorithms on dense datasets. The project rigorously compares the classical **Apriori** algorithm against a state-of-the-art matrix-based approach, **OFIM** (Ordered Frequent Itemset Matrix). 
 
 Additionally, it explores two distinct optimization strategies to address the inherent bottlenecks of the classical Apriori algorithm: CPU Multi-processing and Dynamic Transaction Reduction.
 
 ## Algorithms Implemented
 * **Baseline Apriori:** The classical breadth-first search, generate-and-test paradigm.
-* **OFIM (Ordered Frequent Itemset Matrix):** A modern vertical-format algorithm that computes support counts via hardware-level bitwise AND operations.
+* **OFIM (Ordered Frequent Itemset Matrix):** A modern matrix-based algorithm that constructs a compact 2D array and mines frequent itemsets via prefix-projection on Ordered Frequent Itemsets Lists (OFILs), eliminating complex tree recursions.
 * **Optimized Apriori (MP):** An enhanced Apriori variant utilizing Python's `ProcessPoolExecutor` to distribute the computationally heavy support counting phase across multiple logical CPU cores.
 * **Optimized Apriori (Tx):** An enhanced Apriori variant that dynamically prunes mathematically obsolete transactions from memory during execution to drastically reduce loop iterations and I/O overhead.
 
@@ -29,3 +29,4 @@ To execute the benchmarking suite, run the following command in your terminal:
 
 ```bash
 python3 benchmark_fim.py
+```

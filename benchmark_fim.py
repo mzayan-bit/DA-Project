@@ -154,34 +154,92 @@ def apriori_tx_reduction(transactions, min_sup_count):
 
 
 def ofim(transactions, min_sup_count):
+    """
+    OFIM: Ordered Frequent Itemset Matrix Algorithm
+    Reference: Al-Badani & Al-Khulaidi (2024)
+    
+    Constructs a compact 2D matrix (N x M) where each row contains a
+    transaction's frequent items sorted by descending support frequency
+    (Ordered Frequent Itemsets Lists / OFILs). Mines frequent k-itemsets
+    via prefix-projection on the matrix rows.
+    """
+    from collections import defaultdict
+    
     num_transactions = len(transactions)
-    item_bitvectors = {}
     
-    item_counts = {}
-    for i, t in enumerate(transactions):
+    # Phase 1: Count item frequencies
+    item_counts = defaultdict(int)
+    for t in transactions:
         for item in t:
-            if item not in item_bitvectors:
-                item_bitvectors[item] = 0
-            item_bitvectors[item] |= (1 << i)
-            item_counts[item] = item_counts.get(item, 0) + 1
-            
-    f1_items = [item for item, count in item_counts.items() if count >= min_sup_count]
-    f1_items.sort() 
+            item_counts[item] += 1
     
+    # Filter frequent 1-itemsets
+    freq_items = {item: count for item, count in item_counts.items() 
+                  if count >= min_sup_count}
+    
+    if not freq_items:
+        return {}
+    
+    # Sort items by descending frequency (ties broken by item name)
+    sorted_items = sorted(freq_items.keys(), key=lambda x: (-freq_items[x], x))
+    item_rank = {item: rank for rank, item in enumerate(sorted_items)}
+    
+    # Phase 2: Build the OFIM matrix (N x M)
+    ofim_matrix = []
+    for t in transactions:
+        row = sorted([item for item in t if item in freq_items], 
+                     key=lambda x: item_rank[x])
+        if row:
+            ofim_matrix.append(row)
+    
+    # Collect frequent itemsets
     frequent_itemsets = {}
-    for item in f1_items:
-        frequent_itemsets[frozenset([item])] = item_counts[item]
+    for item in freq_items:
+        frequent_itemsets[frozenset([item])] = freq_items[item]
+    
+    # Phase 3: Mine k-itemsets using OFIL prefix-projection
+    def mine_ofim_recursive(prefix, projected_rows, start_col_items):
+        item_counts_local = defaultdict(int)
+        item_rows = defaultdict(list)
         
-    def mine_vertical(prefix, prefix_bv, items_to_add):
-        for i, item in enumerate(items_to_add):
-            new_bv = prefix_bv & item_bitvectors[item]
-            count = new_bv.bit_count()
+        for row in projected_rows:
+            seen = set()
+            for item in row:
+                if item in seen:
+                    continue
+                seen.add(item)
+                item_counts_local[item] += 1
+                idx = row.index(item)
+                suffix = row[idx + 1:]
+                if suffix:
+                    item_rows[item].append(suffix)
+        
+        for item in start_col_items:
+            if item not in item_counts_local:
+                continue
+            count = item_counts_local[item]
             if count >= min_sup_count:
-                new_itemset = prefix | frozenset([item])
-                frequent_itemsets[new_itemset] = count
-                mine_vertical(new_itemset, new_bv, items_to_add[i+1:])
-                
-    mine_vertical(frozenset(), (1 << num_transactions) - 1, f1_items)
+                new_prefix = prefix | frozenset([item])
+                frequent_itemsets[new_prefix] = count
+                if item in item_rows and item_rows[item]:
+                    next_items = [it for it in start_col_items 
+                                  if item_rank.get(it, float('inf')) > item_rank.get(item, float('inf'))]
+                    if next_items:
+                        mine_ofim_recursive(new_prefix, item_rows[item], next_items)
+    
+    for i, item in enumerate(sorted_items):
+        projected = []
+        for row in ofim_matrix:
+            if item in row:
+                idx = row.index(item)
+                suffix = row[idx + 1:]
+                if suffix:
+                    projected.append(suffix)
+        if projected:
+            remaining_items = sorted_items[i + 1:]
+            if remaining_items:
+                mine_ofim_recursive(frozenset([item]), projected, remaining_items)
+    
     return frequent_itemsets
 
 def run_experiment(dataset_name, filepath, supports):
